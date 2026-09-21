@@ -1,0 +1,399 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "fieldwork — Target Architecture",
+    "locale": "en",
+    "output": "architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "upload-path",
+        "label": "Upload path",
+        "focus": [
+          "browser",
+          "caddy",
+          "api",
+          "minio"
+        ],
+        "note": "Image bytes go straight to object storage; only metadata passes through the API."
+      },
+      {
+        "id": "inference-path",
+        "label": "Inference path",
+        "focus": [
+          "api",
+          "redis",
+          "worker",
+          "vllm"
+        ],
+        "note": "Work is queued, never handled inline, so no request ever holds a GPU slot."
+      },
+      {
+        "id": "accuracy-loop",
+        "label": "Accuracy loop",
+        "focus": [
+          "worker",
+          "accuracy",
+          "review",
+          "evalset"
+        ],
+        "note": "Low-confidence results reach a human, and their corrections grow the eval set."
+      },
+      {
+        "id": "state-and-ops",
+        "label": "State and ops",
+        "focus": [
+          "postgres",
+          "minio",
+          "obs"
+        ],
+        "note": "Durable state and the telemetry that tells you when accuracy drifts."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "obs",
+      "type": "external",
+      "label": "Observability",
+      "sublabel": "OTel · Prometheus · Grafana",
+      "pos": [
+        250,
+        80
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL 16",
+      "sublabel": "jobs · results · audit",
+      "pos": [
+        500,
+        80
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "JSONB + GIN"
+    },
+    {
+      "id": "minio",
+      "type": "cloud",
+      "label": "MinIO",
+      "sublabel": "S3-compatible object store",
+      "pos": [
+        890,
+        80
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "presigned URLs"
+    },
+    {
+      "id": "browser",
+      "type": "frontend",
+      "label": "Browser SPA",
+      "sublabel": "Next.js · React",
+      "pos": [
+        40,
+        215
+      ],
+      "size": [
+        150,
+        68
+      ]
+    },
+    {
+      "id": "caddy",
+      "type": "security",
+      "label": "Caddy",
+      "sublabel": "TLS · rate limit",
+      "pos": [
+        250,
+        215
+      ],
+      "size": [
+        140,
+        68
+      ],
+      "tag": "body size cap"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "API",
+      "sublabel": "FastAPI · Pydantic v2",
+      "pos": [
+        450,
+        215
+      ],
+      "size": [
+        150,
+        68
+      ],
+      "tag": "API key + OIDC"
+    },
+    {
+      "id": "redis",
+      "type": "messagebus",
+      "label": "Redis + arq",
+      "sublabel": "interactive · bulk",
+      "pos": [
+        660,
+        215
+      ],
+      "size": [
+        150,
+        68
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Extraction Worker",
+      "sublabel": "preprocess · validate",
+      "pos": [
+        890,
+        215
+      ],
+      "size": [
+        150,
+        68
+      ],
+      "tag": "scaled to GPU slots"
+    },
+    {
+      "id": "vllm",
+      "type": "backend",
+      "label": "vLLM",
+      "sublabel": "Gemma 4 12B",
+      "pos": [
+        1110,
+        211
+      ],
+      "size": [
+        160,
+        76
+      ],
+      "tag": "guided JSON · prefix cache"
+    },
+    {
+      "id": "evalset",
+      "type": "database",
+      "label": "Eval Dataset",
+      "sublabel": "golden set + corrections",
+      "pos": [
+        410,
+        360
+      ],
+      "size": [
+        160,
+        72
+      ],
+      "tag": "regression gate"
+    },
+    {
+      "id": "review",
+      "type": "frontend",
+      "label": "Review Queue",
+      "sublabel": "human-in-the-loop",
+      "pos": [
+        650,
+        360
+      ],
+      "size": [
+        160,
+        72
+      ]
+    },
+    {
+      "id": "accuracy",
+      "type": "backend",
+      "label": "Accuracy Layer",
+      "sublabel": "OCR cross-check · rules",
+      "pos": [
+        890,
+        360
+      ],
+      "size": [
+        150,
+        72
+      ],
+      "tag": "confidence score"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Single self-hosted GPU host · Docker Compose",
+      "wraps": [
+        "obs",
+        "postgres",
+        "minio",
+        "caddy",
+        "api",
+        "redis",
+        "worker",
+        "vllm",
+        "evalset",
+        "review",
+        "accuracy"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "Private network · no public ingress",
+      "wraps": [
+        "vllm"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "client-https",
+      "from": "browser",
+      "to": "caddy",
+      "label": "HTTPS · SSE progress",
+      "variant": "emphasis",
+      "labelDy": -28
+    },
+    {
+      "id": "direct-upload",
+      "from": "browser",
+      "to": "minio",
+      "label": "presigned PUT (bypasses API)",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top"
+    },
+    {
+      "id": "proxy",
+      "from": "caddy",
+      "to": "api",
+      "label": "proxy :8080"
+    },
+    {
+      "id": "job-state",
+      "from": "api",
+      "to": "postgres",
+      "label": "job state",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "telemetry",
+      "from": "api",
+      "to": "obs",
+      "label": "traces · metrics",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "right"
+    },
+    {
+      "id": "enqueue",
+      "from": "api",
+      "to": "redis",
+      "label": "enqueue · dedupe by sha256",
+      "labelDy": -28
+    },
+    {
+      "id": "dequeue",
+      "from": "redis",
+      "to": "worker",
+      "label": "claim job"
+    },
+    {
+      "id": "fetch-image",
+      "from": "worker",
+      "to": "minio",
+      "label": "GET image",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDx": -62
+    },
+    {
+      "id": "persist",
+      "from": "worker",
+      "to": "postgres",
+      "label": "write result",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "inference",
+      "from": "worker",
+      "to": "vllm",
+      "label": "guided JSON",
+      "variant": "emphasis"
+    },
+    {
+      "id": "score",
+      "from": "worker",
+      "to": "accuracy",
+      "label": "validate · rules",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "escalate",
+      "from": "accuracy",
+      "to": "review",
+      "label": "low confidence",
+      "variant": "dashed"
+    },
+    {
+      "id": "corrections",
+      "from": "review",
+      "to": "evalset",
+      "label": "corrections",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Request path",
+      "items": [
+        "Presigned PUT sends bytes straight to MinIO",
+        "API dedupes on content SHA-256, then enqueues",
+        "202 + job_id; progress streams back over SSE"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Inference tier",
+      "items": [
+        "vLLM: continuous batching + prefix caching",
+        "Guided decoding against the JSON Schema",
+        "Private network only — never public"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Accuracy loop",
+      "items": [
+        "OCR cross-check plus arithmetic rules",
+        "Confidence routes to auto-accept or human",
+        "Corrections grow the eval set, which gates changes"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Operations",
+      "items": [
+        "One box, Docker Compose, weights on a volume",
+        "OTel traces and Prometheus metrics",
+        "Retention TTL and audit log"
+      ]
+    }
+  ]
+}
