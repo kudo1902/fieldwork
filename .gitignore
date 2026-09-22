@@ -1,0 +1,23 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# Eval runs are reproducible output; keep the ones you cite as baselines.
+eval/runs/
+
+# Ground-truth images often contain real personal data. Commit them only if
+# you are certain they do not -- otherwise keep the set out of the repo and
+# share it another way.
+eval/dataset/**/*.jpg
+eval/dataset/**/*.jpeg
+eval/dataset/**/*.png
+eval/dataset/**/*.webp
+eval/dataset/**/*.heic
+eval/dataset/**/*.heif
+eval/dataset/**/*.tif
+eval/dataset/**/*.tiff
+eval/dataset/**/*.pdf
+
+# Regenerable diagram evidence (archify visual-check sidecars).
+docs/*.visual-check.*

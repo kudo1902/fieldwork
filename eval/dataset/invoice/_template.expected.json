@@ -1,0 +1,26 @@
+{
+  "invoice_number": "INV-2026-0417",
+  "issue_date": "2026-04-17",
+  "due_date": "2026-05-17",
+  "vendor_name": "Acme Supplies Ltd",
+  "vendor_tax_id": "GB123456789",
+  "customer_name": "Northwind Trading",
+  "currency": "GBP",
+  "subtotal": 1250.0,
+  "tax_amount": 250.0,
+  "total_amount": 1500.0,
+  "line_items": [
+    {
+      "description": "Widget, 10mm",
+      "quantity": 100,
+      "unit_price": 8.5,
+      "total": 850.0
+    },
+    {
+      "description": "Delivery",
+      "quantity": 1,
+      "unit_price": 400.0,
+      "total": 400.0
+    }
+  ]
+}

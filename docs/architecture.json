@@ -101,7 +101,7 @@
       "id": "browser",
       "type": "frontend",
       "label": "Browser SPA",
-      "sublabel": "Next.js · React",
+      "sublabel": "vanilla JS · no build",
       "pos": [
         40,
         215
@@ -130,7 +130,7 @@
       "id": "api",
       "type": "backend",
       "label": "API",
-      "sublabel": "FastAPI · Pydantic v2",
+      "sublabel": "Flask · Pydantic v2",
       "pos": [
         450,
         215
@@ -144,7 +144,7 @@
     {
       "id": "redis",
       "type": "messagebus",
-      "label": "Redis + arq",
+      "label": "Redis + RQ",
       "sublabel": "interactive · bulk",
       "pos": [
         660,

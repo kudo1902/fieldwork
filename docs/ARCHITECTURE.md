@@ -27,11 +27,11 @@ Phase 1 endpoint exist; see [Phases](#10-phases) for what is real.
 
 | Layer | Choice | Why this over the alternatives |
 | --- | --- | --- |
-| Frontend | Next.js (App Router) + React | Server components for the shell, client components for the review UI. Alternative: keep the current vanilla page for an internal-only tool — it has no build step and works today. |
+| Frontend | Vanilla JS, no build step | Already works, and it keeps a Node toolchain out of production entirely — the Caddy image just copies `web/`. Reach for Preact or Alpine **only** if the Stage C review UI gets unwieldy; one screen is not an app. |
 | Edge | Caddy | Automatic TLS, trivial config, `request_body max_size`. Alternatives: Nginx (more config, more control), Traefik (better if you go container-orchestrated). |
-| API | FastAPI + Pydantic v2 | Async-native (matches the extraction core), OpenAPI generated for free, and Pydantic is already the schema layer. Alternative: Litestar, marginally faster, smaller ecosystem. |
-| Queue | Redis + **arq** | `extract()` is already `async`; arq is async-native and ~500 lines of concepts. Celery's async support is bolted on and its worker model fights an async core. Alternative: RQ if you want dead-simple and sync. |
-| Workers | arq worker processes | One process per GPU slot ×2, so vLLM always has requests to batch. |
+| API | Flask + Pydantic v2 | The API tier does almost no CPU work — validate, hash, check cache, enqueue — so sync costs nothing, and familiar code ships faster. Pydantic stays regardless: it generates the JSON Schema that drives guided decoding. Add APIFlask if you want generated OpenAPI back. |
+| Queue | Redis + **RQ** | Sync-native, so it matches Flask and the sync `extract()` core — one idiom across the whole codebase. Simpler than Celery and than arq. Alternative: Celery if you later need scheduling, chords, or multi-broker routing. |
+| Workers | RQ worker processes | One process per GPU slot ×2, so vLLM always has requests to batch. |
 | Inference | **vLLM** serving Gemma 4 12B | Continuous batching, paged attention, prefix caching, native JSON-Schema guided decoding. Alternatives: SGLang (competitive, sometimes faster on structured output), TGI, llama.cpp (CPU/low-VRAM only). |
 | Object store | MinIO | S3 API on your own disk, so presigned uploads work exactly as they would on S3 and you can migrate later without code changes. |
 | Database | PostgreSQL 16 + SQLAlchemy 2.0 + Alembic | `JSONB` + GIN index means you can query inside extracted payloads without a schema migration per document type. |
@@ -108,12 +108,15 @@ no box as suspect.
 
 ### 4.4 Queueing and concurrency
 
-- Two queues: `interactive` (a human is watching) and `bulk`. Same workers, different priority.
-- Worker concurrency should **exceed** 1 per GPU. vLLM batches continuously, so a single
-  in-flight request wastes the GPU. Start at 4 concurrent and tune against p95.
-- Retries with exponential backoff, max 3, then a dead-letter queue. Transport errors are
-  retryable; schema-validation failures after repair are not.
-- Propagate the OTel trace context into the job payload manually — arq will not do it for you.
+- Two queues: `interactive` (a human is watching) and `bulk`. One worker pool serves both;
+  `rq worker interactive bulk` drains them in the order listed, so interactive always wins.
+- **An RQ worker runs one job at a time and forks per job.** Concurrency is therefore the
+  number of worker *processes*, not a thread setting. Run at least 4 — vLLM batches
+  continuously, so a single in-flight request leaves the GPU idle between tokens.
+- Retries via `Retry(max=3, interval=[10, 30, 60])` at enqueue time. RQ's `FailedJobRegistry`
+  is the built-in dead-letter queue. Transport errors are retryable; schema-validation
+  failures after repair are not — do not retry those, they will fail identically.
+- Propagate the OTel trace context into the job `meta` manually — RQ will not do it for you.
 
 ### 4.5 Caching
 
@@ -128,7 +131,7 @@ prompt, and every previously-seen document silently keeps serving the old, worse
 
 ### 4.6 Observability
 
-Auto-instrument FastAPI, SQLAlchemy, and Redis via `opentelemetry-instrumentation-*`. Beyond
+Auto-instrument Flask, SQLAlchemy, and Redis via `opentelemetry-instrumentation-*`. Beyond
 the standard RED metrics, three custom ones actually predict problems:
 
 - **queue depth** — the first thing to move when the GPU is saturated
@@ -194,8 +197,8 @@ Single host, Docker Compose:
 
 ```
 caddy      :443      TLS, rate limit, body cap
-api        :8080     FastAPI (gunicorn + uvicorn workers)
-worker     ×N        arq, no published port
+api        :8080     Flask (gunicorn, gevent workers)
+worker     ×N        RQ, no published port
 vllm       :8000     --gpus all, private network only
 redis      :6379     private
 postgres   :5432     private
@@ -233,6 +236,6 @@ minio      :9000     private; Caddy proxies presigned URLs
 | --- | --- | --- |
 | 0 | Eval harness, scoring, ground-truth tooling | **Built** |
 | 1 | Extraction core, synchronous API, upload UI | **Built** |
-| 2 | Presigned uploads, Redis + arq, Postgres, MinIO, SSE, review UI | Next |
+| 2 | Presigned uploads, Redis + RQ, Postgres, MinIO, SSE, review UI | Next |
 | 3 | Auth, rate limits, caching, confidence engine, OCR cross-check | After |
 | 4 | OTel + Prometheus + Grafana, retention, audit, nightly eval gate | After |
