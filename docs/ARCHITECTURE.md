@@ -198,6 +198,7 @@ Do not guess; the eval harness already reports p50/p95. The method:
 
 1. Run the eval at concurrency 1 → single-request latency at your chosen `max_dim`.
 2. Raise `--concurrency` until p95 exceeds your SLO. That value is your `--max-num-seqs`.
+   The SLO itself is plan decision 7 (default 30 s p95 for a 12B model at `max_dim` 1536).
 3. `throughput ≈ concurrency / mean_latency`
 4. `docs_per_day ≈ throughput × 86400 × utilisation` (utilisation is well under 1.0 — traffic
    is bursty).

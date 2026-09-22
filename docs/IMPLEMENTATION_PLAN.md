@@ -172,9 +172,13 @@ reviewer can clear a document in under 30 seconds.
 | 4 | Who reviews low-confidence results? | C6 | You; design for one reviewer |
 | 5 | Retention period | D6 | 90 days |
 | 6 | Expected volume | B5 sizing | 100 docs/day |
+| 7 | Latency SLO — p95 extraction latency at default `max_dim` on 12B, measured at concurrency 1 | A5 / B5 sizing | 30 s (see [`TELEMETRY.md`](./TELEMETRY.md) §5) |
 
 Decisions 2 and 6 are cheap now and expensive later. Multi-tenancy retrofitted onto a
 single-tenant schema is a migration across every table.
+
+Decision 7 is the SLO the capacity method ([`ARCHITECTURE.md`](./ARCHITECTURE.md) §6) and the
+p95 burn-rate alert key off — pick it before Stage B sizing, not after the box is running.
 
 ---
 

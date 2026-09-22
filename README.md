@@ -35,6 +35,9 @@ All design docs:
 | [`docs/CONFIDENCE.md`](docs/CONFIDENCE.md) | rules, OCR cross-check, confidence, routing threshold |
 | [`docs/REVIEW_UI.md`](docs/REVIEW_UI.md) | the Stage C review screen, keyboard-first |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | threat model and controls |
+| [`docs/TELEMETRY.md`](docs/TELEMETRY.md) | metrics, alerts, latency SLO |
+| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | failure remediation, restore drill |
+| [`docs/TESTING.md`](docs/TESTING.md) | unit / integration / eval-gate test layers |
 
 ## Layout
 
