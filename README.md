@@ -23,6 +23,19 @@ The build order, task by task, is in
 
 How it gets served and released: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
+All design docs:
+
+| Doc | Covers |
+| --- | --- |
+| [`docs/EVAL.md`](docs/EVAL.md) | how the numbers are made and read; baselines, sweeps |
+| [`docs/PROMPTING.md`](docs/PROMPTING.md) | the prompt/schema iteration loop, `PROMPT_VERSION` |
+| [`docs/API.md`](docs/API.md) | endpoint contract, SSE protocol, error ladder |
+| [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) | Postgres schema, JSONB conventions, MinIO layout |
+| [`docs/QUEUEING.md`](docs/QUEUEING.md) | job lifecycle, queue split, retries/DLQ |
+| [`docs/CONFIDENCE.md`](docs/CONFIDENCE.md) | rules, OCR cross-check, confidence, routing threshold |
+| [`docs/REVIEW_UI.md`](docs/REVIEW_UI.md) | the Stage C review screen, keyboard-first |
+| [`docs/SECURITY.md`](docs/SECURITY.md) | threat model and controls |
+
 ## Layout
 
 ```
