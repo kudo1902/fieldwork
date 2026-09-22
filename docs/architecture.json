@@ -252,7 +252,16 @@
       "kind": "security-group",
       "label": "Private network · no public ingress",
       "wraps": [
-        "vllm"
+        "obs",
+        "postgres",
+        "minio",
+        "api",
+        "redis",
+        "worker",
+        "vllm",
+        "evalset",
+        "review",
+        "accuracy"
       ]
     }
   ],

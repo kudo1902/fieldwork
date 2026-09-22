@@ -6,6 +6,22 @@ Interactive diagram: [`docs/architecture.html`](./architecture.html) (source of 
 This describes the **target** system. Today only the extraction core and a synchronous
 Phase 1 endpoint exist; see [Phases](#10-phases) for what is real.
 
+**Companion design docs:**
+
+| Doc | Covers |
+| --- | --- |
+| [`EVAL.md`](./EVAL.md) | how the numbers are made and read; baselines, sweeps |
+| [`PROMPTING.md`](./PROMPTING.md) | prompt/schema iteration, `PROMPT_VERSION` |
+| [`API.md`](./API.md) | endpoint contract, SSE protocol, error ladder |
+| [`DATA_MODEL.md`](./DATA_MODEL.md) | Postgres schema, JSONB conventions, MinIO layout |
+| [`QUEUEING.md`](./QUEUEING.md) | job lifecycle, queue split, retries/DLQ |
+| [`CONFIDENCE.md`](./CONFIDENCE.md) | rules, OCR cross-check, confidence, routing |
+| [`REVIEW_UI.md`](./REVIEW_UI.md) | the review screen, keyboard-first |
+| [`SECURITY.md`](./SECURITY.md) | threat model and controls |
+| [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) | build order, task by task |
+
+Phases below map one-to-one onto the plan's stages A–E.
+
 ---
 
 ## 1. Principles
@@ -232,10 +248,11 @@ minio      :9000     private; Caddy proxies presigned URLs
 
 ## 10. Phases
 
-| Phase | Scope | Status |
-| --- | --- | --- |
-| 0 | Eval harness, scoring, ground-truth tooling | **Built** |
-| 1 | Extraction core, synchronous API, upload UI | **Built** |
-| 2 | Presigned uploads, Redis + RQ, Postgres, MinIO, SSE, review UI | Next |
-| 3 | Auth, rate limits, caching, confidence engine, OCR cross-check | After |
-| 4 | OTel + Prometheus + Grafana, retention, audit, nightly eval gate | After |
+| Phase | Plan stage | Scope | Status |
+| --- | --- | --- | --- |
+| 0 | — | Eval harness, scoring, ground-truth tooling | **Built** |
+| 1 | — | Extraction core, synchronous API, upload UI | **Built** |
+| 2 | B | Presigned uploads, Redis + RQ, Postgres, MinIO, SSE, queue/SSE frontend | Next |
+| 3 | C | OCR cross-check, confidence engine, review UI, correction promotion | After |
+| 4 | D | Auth, rate limits, result cache, Caddy edge, retention, audit | After |
+| 5 | E | OTel + Prometheus + Grafana, CI, nightly eval gate, backups | After |
