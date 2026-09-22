@@ -19,15 +19,16 @@ argued. This is the stage people skip and the one that determines whether the re
 
 | ID | Task | Files | Size | Depends |
 | --- | --- | --- | --- | --- |
-| A1 | Stand up vLLM on the GPU box, serving `gemma-4-12B-it` | — | S | — |
+| A1 | Stand up vLLM on the GPU box, serving `gemma-4-12B-it`. Assumes the box is already provisioned (NVIDIA toolkit, drivers, VRAM) — if it is not, that provisioning is your real A0 | — | M | — |
 | A2 | Point `.env` at the box, smoke-test the Phase 1 UI on 3 real documents | `.env` | S | A1 |
 | A3 | Collect 30–50 documents into `eval/dataset/<schema>/` | `eval/dataset/` | **L** | — |
-| A4 | Write ground truth; pass `run_eval.py --check` | `eval/dataset/` | **L** | A3 |
+| A4 | Write ground truth; pass `run_eval.py --check`, then spot-check a sample against the originals — `--check` proves schema shape, not correctness | `eval/dataset/` | **L** | A3 |
 | A5 | Baseline run, tagged and saved | `eval/runs/` | S | A2, A4 |
 | A6 | Sweep `--max-dim` (1024 / 1536 / 2048), pick the knee | — | S | A5 |
 | A7 | Sweep model size (12B vs 31B) if A5 is short of target | — | M | A5 |
 | A8 | Evaluate FP8 / AWQ quantization against the eval set | — | M | A6 |
 | A9 | Freeze defaults in `config.py`; record the decision in the README | `src/fieldwork/config.py` | S | A6–A8 |
+| A10 | Introduce `PROMPT_VERSION` in `prompts.py`; stamp it into eval run metadata | `src/fieldwork/prompts.py`, `eval/run_eval.py` | S | A5 |
 
 **A3/A4 are the two biggest tasks in the entire plan and they are pure manual labour.**
 Budget for that honestly. Deliberately include documents where fields are genuinely absent —
@@ -38,10 +39,16 @@ that subset is the only way to measure hallucination, and it is the one everyone
 - If it OOMs at startup, lower `--max-model-len` before reaching for quantization.
 - Verify `FIELDWORK_EXTRA_BODY` (visual token budget) actually moves `prompt_tokens`. If it
   does not, delete it and use `max_dim` alone.
+- Add A10 (`PROMPT_VERSION`) before any caching or DB schema work — the D4 cache key and the
+  `extractions` unique constraint both need it, and retrofitting it later is a migration.
 
-**Gate:** a baseline you trust, with hallucination rate reported separately. If field accuracy
-is far off target after A7 and A8, stop and reconsider scope — more engineering will not fix a
-model that cannot read the documents.
+**Gate:** a baseline you trust, with hallucination rate reported separately. Before A5, agree
+what "field accuracy" counts — the scorer weights every leaf equally and aligns line items
+positionally (one shifted line = one MISSED + one HALLUCINATED), so a dense 30-item invoice
+swamps a dozen receipts in the headline number. Decide line-item weighting first, or the A6
+knee will reflect dataset composition, not model quality. If field accuracy is far off target
+after A7 and A8, stop and reconsider scope — more engineering will not fix a model that cannot
+read the documents.
 
 ---
 
@@ -65,7 +72,9 @@ to add features here; the point is that inference stops blocking HTTP.
 
 **Watch out**
 - **SSE through a proxy needs `flush_interval -1` in Caddy**, or responses buffer and progress
-  arrives all at once at the end. This costs people an afternoon every time.
+  arrives all at once at the end. This costs people an afternoon every time. (Caddy only
+  arrives in D5 — while building B7, SSE runs over plain Flask, so this note bites at deploy
+  time, not on your first B9 test.)
 - MinIO needs CORS configured for browser PUTs, or the upload fails with an opaque error.
 - Worker concurrency must exceed 1 per GPU or vLLM has nothing to batch. Start at 4.
 - Keep `extract()` untouched. If Stage B forces changes to it, the seam was wrong.
@@ -120,8 +129,8 @@ reviewer can clear a document in under 30 seconds.
 | D9 | Security review of uploads, SSRF, injection, tenancy | — | M | D1–D8 |
 
 **Watch out**
-- The cache key must include `prompt_version`. Omit it and improving a prompt silently keeps
-  serving the old answer for every document already seen.
+- The cache key must include `prompt_version` (introduced in A10). Omit it and improving a
+  prompt silently keeps serving the old answer for every document already seen.
 - Tenant isolation belongs in a query-level filter, not in route handlers. One forgotten
   `WHERE tenant_id` is a cross-tenant data leak.
 
@@ -136,7 +145,8 @@ reviewer can clear a document in under 30 seconds.
 | E1 | OTel auto-instrumentation; trace context into RQ job meta | `src/fieldwork/telemetry.py` | M | B5 |
 | E2 | Prometheus metrics incl. queue depth and per-field null rate | `src/fieldwork/telemetry.py` | M | E1 |
 | E3 | Grafana dashboards + alerts | `docker/grafana/` | M | E2 |
-| E4 | CI: ruff, mypy, pytest on PR | `.github/workflows/` | S | — |
+| E4a | Adopt the toolchain: dev deps + ruff/mypy/pytest configs, convert `tests/test_score.py` to pytest, annotate the untyped modules | `pyproject.toml`, `tests/` | M | — |
+| E4 | CI: ruff, mypy, pytest on PR | `.github/workflows/` | S | E4a |
 | E5 | Nightly eval against staging, gated on accuracy regression | `.github/workflows/` | M | A5, E4 |
 | E6 | Backups: `pg_dump` cron, MinIO replication, restore drill | `docker/` | M | B1 |
 
@@ -158,7 +168,7 @@ reviewer can clear a document in under 30 seconds.
 | --- | --- | --- | --- |
 | 1 | Which document types beyond invoice/receipt? | A3 | Invoice + receipt only |
 | 2 | Single tenant or multi-tenant? | B2 | Single — but leave `tenant_id` on every table |
-| 3 | Accuracy target and hallucination ceiling | A5 gate | 95% field accuracy, <1% hallucination |
+| 3 | Accuracy target and hallucination ceiling — including whether line items count in the "field accuracy" denominator | A5 gate | 95% field accuracy, <1% hallucination |
 | 4 | Who reviews low-confidence results? | C6 | You; design for one reviewer |
 | 5 | Retention period | D6 | 90 days |
 | 6 | Expected volume | B5 sizing | 100 docs/day |
@@ -195,7 +205,9 @@ A3─A4─┘                          ║
                                     D1…D9 ══ GATE ══► E1…E6
 ```
 
-A3/A4 run in parallel with A1/A2 — the dataset needs no GPU. Start collecting documents today.
+A3/A4 run in parallel with A1/A2 — the dataset needs no GPU. Today `eval/dataset/` holds only
+`_template.expected.json`, so A3/A4 are the critical path from this moment; everything else in
+the plan is gated on them.
 
 E4 (CI) can also start immediately; it depends on nothing.
 
