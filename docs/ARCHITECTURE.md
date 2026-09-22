@@ -18,6 +18,7 @@ Phase 1 endpoint exist; see [Phases](#10-phases) for what is real.
 | [`CONFIDENCE.md`](./CONFIDENCE.md) | rules, OCR cross-check, confidence, routing |
 | [`REVIEW_UI.md`](./REVIEW_UI.md) | the review screen, keyboard-first |
 | [`SECURITY.md`](./SECURITY.md) | threat model and controls |
+| [`MODULES.md`](./MODULES.md) | per-module contracts, seams, dependencies |
 | [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) | build order, task by task |
 
 Phases below map one-to-one onto the plan's stages A–E.

@@ -38,6 +38,7 @@ All design docs:
 | [`docs/TELEMETRY.md`](docs/TELEMETRY.md) | metrics, alerts, latency SLO |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | failure remediation, restore drill |
 | [`docs/TESTING.md`](docs/TESTING.md) | unit / integration / eval-gate test layers |
+| [`docs/MODULES.md`](docs/MODULES.md) | per-module contracts, seams, dependencies |
 
 ## Layout
 
